@@ -29,7 +29,7 @@ After that you have a couple of parameters that you must add to your Grails conf
     crm.calendar.google.key.private = "-----BEGIN PRIVATE KEY-----\n***********\n-----END PRIVATE KEY-----\n"
     crm.calendar.google.user = "serviceaccount@yourdomain.com"
 
-A named URL mapping must be added to your Grails application's URLMappings.groovy.
+A named URL mapping called **crm-google-calendar-auth** must be added to your Grails application's URLMappings.groovy.
 This mapping should point to the OAuth2 callback URL that you want to use
 when authorizing your users with Google. A default callback is provided
 by the plugin at `CrmGoogleCalendarController#callback()`.
@@ -39,9 +39,14 @@ by the plugin at `CrmGoogleCalendarController#callback()`.
         action = 'callback'
     }
 
-The path to this action must be configured in the Web Application credential in the Google API project.
+The path to this action must be configured in the Web Application credential in the Google API project (above).
 
 Now you should be able to start your Grails application and visit http://localhost:8080/myapp/crmGoogleCalendar.
-You should be redirected to your Google Login and you will have to authorized your Grails application
-to access your Google calendar. Once you have authorized the app you can attach one of your calendars to
-your Grails application and CrmTask instances created with the crm-task/crm-task-ui plugin will be synchronized with your Google calendar.
+You should be redirected to your Google Account Login and you will have to authorize your Grails application
+to access your Google calendar offline. Once you have authorized the app you can attach one of your calendars to
+your Grails application. Once a calendar is attached then CrmTask instances you create with the crm-task/crm-task-ui
+plugin will be synchronized with your Google calendar.
+
+Please don't use your private day-to-day calendar for experiments with this plugin.
+Instead create a new calender and attach that to your application.
+You select what calendar to attach with the `/crmGoogleCalendar/index` action.
