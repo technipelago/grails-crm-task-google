@@ -20,7 +20,7 @@ class CrmTaskGoogleGrailsPlugin {
     def dependsOn = [:]
     def loadAfter = ['crmTask']
     def pluginExcludes = [
-        "grails-app/views/error.gsp"
+            "grails-app/views/error.gsp"
     ]
     def title = "GR8 CRM Google Calendar Sync"
     def author = "Goran Ehrsson"
@@ -30,7 +30,21 @@ Provides synchronization between GR8 CRM tasks and Google Calendar events.
 '''
     def documentation = "http://gr8crm.github.io/plugins/crm-task-google/"
     def license = "APACHE"
-    def organization = [ name: "Technipelago AB", url: "http://www.technipelago.se/" ]
+    def organization = [name: "Technipelago AB", url: "http://www.technipelago.se/"]
     def issueManagement = [system: "github", url: "https://github.com/technipelago/grails-crm-task-google/issues"]
     def scm = [url: "https://github.com/technipelago/grails-crm-task-google"]
+
+    def features = {
+        googleCalendar {
+            description "Google Calendar Integration"
+            link controller: "crmGoogleCalendar", action: "index"
+            permissions {
+                // guest and partner roles don't get the calendar by default.
+                user "crmGoogleCalendar:*"
+                admin "crmGoogleCalendar:*"
+            }
+            required false
+            hidden true
+        }
+    }
 }
