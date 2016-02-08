@@ -40,8 +40,10 @@ class CrmGoogleCalendarController {
 
         final Map model = [current: crmGoogleCalendarService.getCalendarId(user)]
         try {
-            model.result = crmGoogleCalendarService.getCalendarService(user).calendarList().list().execute().getItems().findAll {
-                it.getAccessRole() == 'owner'
+            model.result = crmGoogleCalendarService.withCalendar(user) { client ->
+                client.calendarList().list().execute().getItems().findAll {
+                    it.getAccessRole() == 'owner'
+                }
             }
         } catch (GoogleJsonResponseException e) {
             redirect action: 'setup'
@@ -111,8 +113,9 @@ class CrmGoogleCalendarController {
         def user = crmSecurityService.getCurrentUser()
         def next = 'index'
         try {
-            com.google.api.services.calendar.Calendar client = crmGoogleCalendarService.getCalendarService(user)
-            com.google.api.services.calendar.model.Calendar calendar = crmGoogleCalendarService.addCalendar(client, name, description, location, timezone)
+            com.google.api.services.calendar.model.Calendar calendar = crmGoogleCalendarService.withCalendar(user) { client ->
+                crmGoogleCalendarService.addCalendar(client, name, description, location, timezone)
+            }
             flash.success = message(code: 'crm.task.google.calendar.created.message', args: [calendar.getSummary()])
         } catch (GoogleJsonResponseException e) {
             next = 'setup'
@@ -130,8 +133,9 @@ class CrmGoogleCalendarController {
         def next = 'index'
 
         try {
-            com.google.api.services.calendar.Calendar client = crmGoogleCalendarService.getCalendarService(user)
-            com.google.api.services.calendar.model.Calendar calendar = client.calendarList().get(id).execute()
+            com.google.api.services.calendar.model.Calendar calendar = crmGoogleCalendarService.withCalendar(user) { client ->
+                client.calendarList().get(id).execute()
+            }
             if (calendar) {
                 crmGoogleCalendarService.setCalendarId(user, calendar.getId())
                 flash.success = message(code: 'crm.task.google.calendar.attached.message', args: [calendar.getSummary()])

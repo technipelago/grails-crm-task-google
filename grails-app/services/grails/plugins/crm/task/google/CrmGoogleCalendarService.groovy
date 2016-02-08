@@ -8,11 +8,10 @@ import com.google.api.client.googleapis.auth.oauth2.GoogleAuthorizationCodeReque
 import com.google.api.client.googleapis.auth.oauth2.GoogleAuthorizationCodeTokenRequest
 import com.google.api.client.googleapis.auth.oauth2.GoogleCredential
 import com.google.api.client.googleapis.auth.oauth2.GoogleTokenResponse
-import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport
 import com.google.api.client.googleapis.json.GoogleJsonResponseException
+import com.google.api.client.googleapis.util.Utils
 import com.google.api.client.http.HttpTransport
 import com.google.api.client.json.JsonFactory
-import com.google.api.client.json.jackson2.JacksonFactory
 import com.google.api.client.util.DateTime
 import com.google.api.services.calendar.CalendarScopes
 import com.google.api.services.calendar.model.CalendarListEntry
@@ -23,12 +22,11 @@ import grails.plugins.crm.security.CrmUser
 import grails.plugins.crm.task.CrmTask
 import grails.transaction.Transactional
 import org.apache.commons.lang.StringUtils
-import org.springframework.beans.factory.InitializingBean
 
 /**
- * Created by goran on 2016-02-06.
+ * This service makes it easy to access a Google Calendar.
  */
-class CrmGoogleCalendarService implements InitializingBean {
+class CrmGoogleCalendarService {
 
     private static final String APPLICATION_NAME = "GR8CRM-Calendar/0.2"
     private static final String GOOGLE_CALENDAR_API = 'google.calendar'
@@ -37,51 +35,28 @@ class CrmGoogleCalendarService implements InitializingBean {
     /** Global instance of the scopes required by this quickstart. */
     private static final List<String> CALENDAR_SCOPES = [CalendarScopes.CALENDAR].asImmutable()
 
-    protected static final JsonFactory JSON_FACTORY = JacksonFactory.getDefaultInstance()
+    private static final JsonFactory JSON_FACTORY = Utils.getDefaultJsonFactory()
 
-    protected static HttpTransport HTTP_TRANSPORT
-
-    static {
-        try {
-            HTTP_TRANSPORT = GoogleNetHttpTransport.newTrustedTransport()
-        } catch (Throwable t) {
-            t.printStackTrace()
-        }
-    }
+    private static HttpTransport HTTP_TRANSPORT = Utils.getDefaultTransport()
 
     def grailsApplication
     def grailsLinkGenerator
     def crmSecurityService
     def crmTaskService
 
-    private GoogleApi api = new GoogleApi()
-
-    @Override
-    void afterPropertiesSet() throws Exception {
-        def config = grailsApplication.config.crm.calendar.google ?: [:]
-
-        api.clientId = getClientId()
-        api.clientSecret = getClientSecret()
-        api.clientEmail = (String) config.client.email
-        api.privateKeyPem = (String) config.key.private
-        api.privateKeyId = (String) config.key.id
-        api.serviceName = GOOGLE_CALENDAR_API
-        api.serviceUser = (String) config.user
-    }
-
-    protected String getClientId() {
+    private String getClientId() {
         grailsApplication.config.crm.calendar.google.client.id ?: ''
     }
 
-    protected String getClientSecret() {
+    private String getClientSecret() {
         grailsApplication.config.crm.calendar.google.client.secret ?: ''
     }
 
-    protected String getServiceName() {
+    private String getServiceName() {
         GOOGLE_CALENDAR_API
     }
 
-    protected List<String> getScopes() {
+    private List<String> getScopes() {
         CALENDAR_SCOPES
     }
 
@@ -108,7 +83,7 @@ class CrmGoogleCalendarService implements InitializingBean {
         if (!crmUser?.enabled) {
             throw new IllegalArgumentException("User not enabled: $crmUser")
         }
-        crmUser.getOption("oauth2.${service}.token")
+        crmUser.getOption("oauth2.${service}.refresh")
     }
 
     @Transactional
@@ -136,28 +111,23 @@ class CrmGoogleCalendarService implements InitializingBean {
         }
     }
 
-    protected Credential getCredential(final CrmUser crmUser, final GoogleApi api) {
-        final String serviceName = api.getServiceName()
+    public Credential getCredential(final CrmUser crmUser) {
+        final String serviceName = getServiceName()
         String accessToken = getAccessToken(crmUser, serviceName)
         if (!accessToken) {
             throw new IllegalStateException("User [$crmUser] is not authorized to connect to the [$serviceName] service")
         }
         String refreshToken = getRefreshToken(crmUser, serviceName)
         Credential cred = new GoogleCredential.Builder()
+                .setClientSecrets(getClientId(), getClientSecret())
                 .setTransport(HTTP_TRANSPORT)
                 .setJsonFactory(JSON_FACTORY)
-                .setClientSecrets(api.getClientId(), api.getClientSecret())
-                .setServiceAccountUser(api.getServiceUser())
-                .setServiceAccountId(api.getClientEmail())
-                .setServiceAccountScopes(getScopes())
-                .setServiceAccountPrivateKey(api.getPrivateKey())
-                .setServiceAccountPrivateKeyId(api.getPrivateKeyId())
                 .addRefreshListener(
                 new CredentialRefreshListener()
                 {
                     @Override
                     void onTokenResponse(Credential credential, TokenResponse tokenResponse) throws IOException {
-                        println "Great we got a token response in the listener! ${tokenResponse.getAccessToken()}"
+                        log.debug "Successfully refreshed access token ${tokenResponse.getAccessToken()}"
                         setAccessToken(crmUser, serviceName, tokenResponse.getAccessToken())
                         if (StringUtils.isNotBlank(tokenResponse.getRefreshToken())) {
                             setRefreshToken(crmUser, serviceName, tokenResponse.getRefreshToken())
@@ -166,7 +136,7 @@ class CrmGoogleCalendarService implements InitializingBean {
 
                     @Override
                     void onTokenErrorResponse(Credential credential, TokenErrorResponse tokenErrorResponse) throws IOException {
-                        println "ERRRRRRRRRRRR ${tokenErrorResponse.getError()} ${tokenErrorResponse.getErrorDescription()}"
+                        log.error "Failed to refresh access token ${credential.getAccessToken()}: ${tokenErrorResponse.getError()} ${tokenErrorResponse.getErrorDescription()}"
                     }
                 })
                 .build()
@@ -182,6 +152,10 @@ class CrmGoogleCalendarService implements InitializingBean {
                 .setAccessType("offline")
                 .setApprovalPrompt("force")
                 .build()
+    }
+
+    def withCalendar(CrmUser crmUser, Closure work) {
+        work.call(getCalendarService(crmUser))
     }
 
     public boolean isCalendarConfigured(CrmUser crmUser) {
@@ -204,7 +178,7 @@ class CrmGoogleCalendarService implements InitializingBean {
      * @throws IOException
      */
     public com.google.api.services.calendar.Calendar getCalendarService(CrmUser crmUser) {
-        Credential credential = getCredential(crmUser, api)
+        Credential credential = getCredential(crmUser)
         new com.google.api.services.calendar.Calendar.Builder(
                 HTTP_TRANSPORT, JSON_FACTORY, credential)
                 .setApplicationName(APPLICATION_NAME)
@@ -355,12 +329,13 @@ class CrmGoogleCalendarService implements InitializingBean {
             log.debug("User $crmUser has no connected calendar")
             return
         }
-        com.google.api.services.calendar.Calendar client = getCalendarService(crmUser)
-        CalendarListEntry calendar = client.calendarList().get(calendarId).execute()
-        if (calendar?.getAccessRole() == 'owner') {
-            final String eventId = createEventId(crmTask)
-            client.events().delete(calendarId, eventId).execute()
-            log.debug "Deleted crmTask@${crmTask.id} from Google Calendar..."
+        withCalendar(crmUser) { client ->
+            CalendarListEntry calendar = client.calendarList().get(calendarId).execute()
+            if (calendar?.getAccessRole() == 'owner') {
+                final String eventId = createEventId(crmTask)
+                client.events().delete(calendarId, eventId).execute()
+                log.debug "Deleted crmTask@${crmTask.id} from Google Calendar..."
+            }
         }
     }
 }
