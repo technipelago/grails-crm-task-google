@@ -69,10 +69,13 @@ class CrmGoogleCalendarService {
     }
 
     @Transactional
-    public String setAccessToken(CrmUser crmUser, String service, String token) {
+    public synchronized String setAccessToken(CrmUser crmUser, String service, String token) {
         if (!crmUser?.enabled) {
             throw new IllegalArgumentException("User not enabled: $crmUser")
         }
+
+        crmUser.discard()
+        crmUser = crmUser.lock(crmUser.id)
         crmUser.setOption("oauth2.${service}.token", token)
 
         return token
@@ -87,10 +90,13 @@ class CrmGoogleCalendarService {
     }
 
     @Transactional
-    public String setRefreshToken(CrmUser crmUser, String service, String token) {
+    public synchronized String setRefreshToken(CrmUser crmUser, String service, String token) {
         if (!crmUser?.enabled) {
             throw new IllegalArgumentException("User not enabled: $crmUser")
         }
+
+        crmUser.discard()
+        crmUser = crmUser.lock(crmUser.id)
         crmUser.setOption("oauth2.${service}.refresh", token)
 
         return token
