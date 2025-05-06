@@ -13,9 +13,8 @@ grails.project.fork = [
 
 grails.project.dependency.resolver = "maven"
 grails.project.dependency.resolution = {
-    inherits("global") {}
+    inherits "global"
     log "warn"
-    legacyResolve false
     repositories {
         grailsCentral()
         mavenLocal()
@@ -26,6 +25,7 @@ grails.project.dependency.resolution = {
         compile 'com.google.api-client:google-api-client-java6:1.21.0'
         compile 'com.google.oauth-client:google-oauth-client-jetty:1.21.0'
         compile 'com.google.apis:google-api-services-calendar:v3-rev160-1.21.0'
+        compile 'org.apache.httpcomponents:httpclient:4.5.3'
 
         // See https://jira.grails.org/browse/GPHIB-30
         test("javax.validation:validation-api:1.1.0.Final") { export = false }
@@ -42,13 +42,13 @@ grails.project.dependency.resolution = {
             export = false
         }
 
-        test(":codenarc:0.24.1") { export = false }
-        test(":code-coverage:2.0.3-3") { export = false }
+        //test(":codenarc:0.24.1") { export = false }
+        //test(":code-coverage:2.0.3-3") { export = false }
 
-        compile ":crm-task:2.4.5"
+        compile ":crm-task:2.5.0"
     }
 }
-
+/*
 codenarc.reports = {
     xmlReport('xml') {
         outputFile = 'target/CodeNarcReport.xml'
@@ -57,3 +57,4 @@ codenarc.reports = {
         outputFile = 'target/CodeNarcReport.html'
     }
 }
+*/
